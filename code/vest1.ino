@@ -1,5 +1,25 @@
-[솔레노이드까지 연결 성공한 거]
+#define BLYNK_PRINT Serial
+#define BLYNK_TEMPLATE_ID   "TMPL6C6B1yk2y"
+#define BLYNK_TEMPLATE_NAME "Guardian Vest"
+#define BLYNK_AUTH_TOKEN    "vVIu2O-EdcwzPa_ZNxQGhoFbn0mAkKEU"
 
+#include <SPI.h>
+#include <WiFiS3.h>
+#include <BlynkSimpleWifi.h>
+
+// WiFi 접속 정보
+char ssid[] = "yemin";                      
+char pass[] = "123212321";                        
+
+// Blynk 이벤트 코드
+const char* EVENT_CODE = "warning_notice"; 
+
+// 알림 중복 전송 방지를 위한 플래그
+bool alertSent = false; 
+// ============== Blynk & WiFi 설정 끝 ==============
+
+
+// ============== 기존 성공 코드 시작 ==============
 #include <Adafruit_NeoPixel.h>
 #include<Wire.h>
 #include <MPU6050.h>
@@ -8,7 +28,7 @@
 #define ECHO_PIN 12
 #define LED_PIN 3
 #define NUM_LEDS 1
- #define VIB_MOTOR_PIN 6
+#define VIB_MOTOR_PIN 6
 #define BUZZER_PIN 8
 #define RELAY_PIN 2
 
@@ -27,12 +47,17 @@ int16_t AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ;
 void setup() {
   Serial.begin(9600);
 
+  // ===================== Blynk 연결 로직 =====================
+  Serial.println("Blynk 연결 시도...");
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+  // =============================================================
+
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
-  //pinMode (Sigpin , INPUT);
   pinMode(VIB_MOTOR_PIN, OUTPUT);
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, LOW); // 릴레이 초기화
   analogWrite(VIB_MOTOR_PIN, 0);
   strip.begin();
   strip.show(); // LED 모두 끄기
@@ -52,6 +77,8 @@ void setup() {
 }
 
 void loop() {
+  Blynk.run(); // Blynk 연결 유지 및 통신 처리
+
   //초음파 거리 측정
   digitalWrite(TRIG_PIN, LOW);
   delayMicroseconds(2);
@@ -60,14 +87,14 @@ void loop() {
   digitalWrite(TRIG_PIN, LOW);
 
   float duration = pulseIn(ECHO_PIN, HIGH, 30000); 
-  float distance = 0.017 * duration; 
+  float distance = 0.017 * duration; // 전역 변수 distance 업데이트
 
   Serial.print("Distance: ");
   Serial.print(distance);
   Serial.println(" cm");
 
   //100cm 미만이면 LED on, 진동모터 on, 부저 on
-  if (distance > 0 && distance <= 100) {
+   if (distance > 0 && distance <= 100) {
     strip.setPixelColor(0, strip.Color(255, 0, 0));
     analogWrite(VIB_MOTOR_PIN, 255);
     digitalWrite(BUZZER_PIN, HIGH);
@@ -77,24 +104,6 @@ void loop() {
     digitalWrite(BUZZER_PIN, LOW);
   }
   strip.show();
-
-  // //TRM-121A
-  // unsigned  long T;          // 주기
-  // double f;                 // 주파수 
-  // char s [ 20 ];     
-  // vmax = 0 ;
-  // while (digitalRead (Sigpin)); 
-  // while ( ! digitalRead (Sigpin));
- 
-  // T = pulseIn (Sigpin , HIGH) + pulseIn (Sigpin , LOW); 
-  // f = 1 / ( double ) T;         
-  // v = int ((f * 1e6 ) /900.0 );     
-  // vmax = max (v, vmax); 
-  // if(vmax >= 1000) 
-  //   vmax = 0;
-  // else
-  //   sprintf (s, "% 3d km / h" , vmax);
-  // Serial.println (s); 
 
   //IMU MPU6050
   Wire.beginTransmission(MPU_addr);
@@ -115,9 +124,17 @@ void loop() {
   Serial.print(" | GyX = "); Serial.print(GyX);
   Serial.print(" | GyY = "); Serial.print(GyY);
   Serial.print(" | GyZ = "); Serial.println(GyZ);
-
   
-  //낙상 감지 (IMU)
+  // ===================== 센서 데이터 전송 로직 (V0, V1) =====================
+  if (Blynk.connected()) {
+      // V0: Accel Z 값 전송 (History Graph용)
+      Blynk.virtualWrite(V0, AcZ); 
+      // V1: Distance 값 전송
+      Blynk.virtualWrite(V1, distance); 
+  }
+  // ========================================================================
+
+ //낙상 감지 (IMU)
   int absAcX = abs(AcX);
   int absAcY = abs(AcY);
   int absAcZ = abs(AcZ);
@@ -129,11 +146,37 @@ void loop() {
     analogWrite(VIB_MOTOR_PIN, 255); // 진동 강하게
     digitalWrite(BUZZER_PIN, HIGH);
     digitalWrite(RELAY_PIN, HIGH);
+
+   // ===================== 릴레이 작동 시 Blynk 알림 전송 로직 =====================
+    if (Blynk.connected()) {
+        // V2: Fall Status = 1 (감지)
+        Blynk.virtualWrite(V2, 1);
+        // V3: Relay Status = 1 (ON)
+        Blynk.virtualWrite(V3, 1); 
+
+        if (!alertSent) {
+          Blynk.logEvent(EVENT_CODE, "긴급경고! 사용자의 에어백이 작동되었습니다");
+          Serial.println(">>> Blynk 긴급 알림 전송 완료.");
+          alertSent = true; 
+        }
+    }
+    // =========================================================================
+
   } else {
     analogWrite(VIB_MOTOR_PIN, 0);
     digitalWrite(BUZZER_PIN, LOW);
     digitalWrite(RELAY_PIN, LOW);
+
+  // 릴레이가 꺼지면 알림 플래그 초기화
+    alertSent = false;
   }
+
+// ===================== 정상 상태 및 릴레이 OFF 전송 (V2, V3) =====================
+    if (Blynk.connected()) {
+        Blynk.virtualWrite(V2, 0); // V2: Fall Status = 0 (정상)
+        Blynk.virtualWrite(V3, 0); // V3: Relay Status = 0 (OFF)
+    }
+    // ==============================================================================
 
   delay(700);
 }
