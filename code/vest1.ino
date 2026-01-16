@@ -1,5 +1,19 @@
+// === BLYNK ADD: 시작 ===
+#define BLYNK_PRINT Serial
+#define BLYNK_TEMPLATE_ID   "TMPL6C6B1yk2y"
+#define BLYNK_TEMPLATE_NAME "Guardian Vest"
+#define BLYNK_AUTH_TOKEN    "vVIu2O-EdcwzPa_ZNxQGhoFbn0mAkKEU"
+
+#include <SPI.h>
+#include <WiFiS3.h>
+#include <BlynkSimpleWifi.h>
+
+// Wi-Fi
+char ssid[] = "yemin";
+char pass[] = "123212321";  // 철자 확인!
+
 #include <Adafruit_NeoPixel.h>
-#include<Wire.h>
+#include <Wire.h>
 #include <MPU6050.h>
 
 #define TRIG_PIN 13
@@ -13,7 +27,6 @@ int vmax;
 int Sigpin = A0 ; 
 
 Adafruit_NeoPixel strip(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
-
 MPU6050 mpu(0x68);
 
 const int MPU_addr=0x68;
@@ -43,9 +56,24 @@ void setup() {
   Wire.write(0x6B); 
   Wire.write(0); // set to zero (wakes up the MPU-6050)
   Wire.endTransmission(true);
+
+  // ===== BLYNK: WiFi + Cloud 연결 =====
+  // (UNO R4 WiFi는 WiFiS3 + BlynkSimpleWifi 조합)
+  Serial.println("Connecting to Blynk...");
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+
+  // 연결 확인 로그(선택)
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("WiFi connected. IP: ");
+    Serial.println(WiFi.localIP());
+  }
+  Serial.println("Blynk ready.");
 }
 
 void loop() {
+  // ===== BLYNK: 필수 런루프 =====
+  Blynk.run();
+
   //초음파 거리 측정
   digitalWrite(TRIG_PIN, LOW);
   delayMicroseconds(2);
@@ -73,7 +101,6 @@ void loop() {
   } else {
     analogWrite(VIB_MOTOR_PIN, 0);
   }
-
 
   //TRM-121A
   unsigned  long T;          // 주기
