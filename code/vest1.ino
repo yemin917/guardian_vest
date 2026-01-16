@@ -1,5 +1,3 @@
-파 센서, 레이더 센서, imu 센서, 진동 모터, led 성공 코드]
-
 #include <Adafruit_NeoPixel.h>
 #include<Wire.h>
 #include <MPU6050.h>
