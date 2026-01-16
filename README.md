@@ -39,7 +39,6 @@ Response - Fall
 - Detect falls using the IMU sensor
 - Respond with airbag deployment and alert notification via Blynk
 
----
 
 ## Features
 - Real-time vehicle detection and warning for pedestrians
@@ -47,8 +46,6 @@ Response - Fall
 - Multi-modal feedback: tactile, auditory, and visual
 - Low-cost and easily wearable design
 - Smartphone alert notifications via Blynk
-
----
 
 ## How to Run
 1. Connect all sensors and actuators to Arduino UNO R4 Wifi according to the hardware diagram.  
