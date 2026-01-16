@@ -1,3 +1,5 @@
+파 센서, 레이더 센서, imu 센서, 진동 모터, led 성공 코드]
+
 #include <Adafruit_NeoPixel.h>
 #include<Wire.h>
 #include <MPU6050.h>
@@ -6,6 +8,7 @@
 #define ECHO_PIN 12
 #define LED_PIN 3
 #define NUM_LEDS 1
+#define VIB_MOTOR_PIN 6
 
 int v;      
 int vmax;  
@@ -20,11 +23,16 @@ int16_t AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ;
 
 void setup() {
   Serial.begin(9600);
+
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
   pinMode (Sigpin , INPUT);
+  pinMode(VIB_MOTOR_PIN, OUTPUT);
+
+  analogWrite(VIB_MOTOR_PIN, 0);
   strip.begin();
   strip.show(); // LED 모두 끄기
+
   Wire.begin();
   mpu.initialize();
   if(mpu.testConnection()){
@@ -32,6 +40,7 @@ void setup() {
   }else{
     Serial.println("MPU6050 연결 실패");
   }
+
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x6B); 
   Wire.write(0); // set to zero (wakes up the MPU-6050)
@@ -39,7 +48,7 @@ void setup() {
 }
 
 void loop() {
-  초음파 거리 측정
+  //초음파 거리 측정
   digitalWrite(TRIG_PIN, LOW);
   delayMicroseconds(2);
   digitalWrite(TRIG_PIN, HIGH);
@@ -60,7 +69,14 @@ void loop() {
   }
   strip.show();
 
-  
+  // 진동 모터 제어
+  if (distance > 0 && distance <= 30) {
+    analogWrite(VIB_MOTOR_PIN, 255 / 5 * 3);
+  } else {
+    analogWrite(VIB_MOTOR_PIN, 0);
+  }
+
+
   //TRM-121A
   unsigned  long T;          // 주기
   double f;                 // 주파수 
@@ -78,7 +94,6 @@ void loop() {
   else
     sprintf (s, "% 3d km / h" , vmax);
   Serial.println (s); 
-
 
   //IMU MPU6050
   Wire.beginTransmission(MPU_addr);
