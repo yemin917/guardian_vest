@@ -24,25 +24,42 @@ bool alertSent = false;
 #include<Wire.h>
 #include <MPU6050.h>
 
-#define TRIG_PIN 13
-#define ECHO_PIN 12
-#define LED_PIN 3
+#define TRIG_PIN_L 13
+#define ECHO_PIN_L 12
+#define TRIG_PIN_R 4
+#define ECHO_PIN_R 7
+#define TRIG_PIN_C 10
+#define ECHO_PIN_C 11
+
+long readDistance(int trigPin, int echoPin) {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  long duration = pulseIn(echoPin, HIGH, 30000);
+  long distance = duration * 0.0343 / 2;
+
+  return distance;
+}
+
+#define LED_PIN_L 3
+#define LED_PIN_R 9
 #define NUM_LEDS 1
-#define VIB_MOTOR_PIN 6
+#define VIB_MOTOR_PIN_L 6
+#define VIB_MOTOR_PIN_R 5
 #define BUZZER_PIN 8
 #define RELAY_PIN 2
 
-// int v;      
-// int vmax;  
-// int Sigpin = A0; 
-
-Adafruit_NeoPixel strip(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip1(NUM_LEDS, LED_PIN_L, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip2(NUM_LEDS, LED_PIN_R, NEO_GRB + NEO_KHZ800);
 
 MPU6050 mpu(0x68);
 
 const int MPU_addr=0x68;
 int16_t AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ;
-
 
 void setup() {
   Serial.begin(9600);
@@ -52,15 +69,26 @@ void setup() {
   Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
   // =============================================================
 
-  pinMode(TRIG_PIN, OUTPUT);
-  pinMode(ECHO_PIN, INPUT);
-  pinMode(VIB_MOTOR_PIN, OUTPUT);
+  pinMode(TRIG_PIN_L, OUTPUT);
+  pinMode(ECHO_PIN_L, INPUT);
+  pinMode(TRIG_PIN_R, OUTPUT);
+  pinMode(ECHO_PIN_R, INPUT);
+  pinMode(TRIG_PIN_C, OUTPUT);
+  pinMode(ECHO_PIN_C, INPUT);
+  pinMode(VIB_MOTOR_PIN_L, OUTPUT);
+  pinMode(VIB_MOTOR_PIN_R, OUTPUT);
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(RELAY_PIN, OUTPUT);
+
   digitalWrite(RELAY_PIN, LOW); // 릴레이 초기화
-  analogWrite(VIB_MOTOR_PIN, 0);
-  strip.begin();
-  strip.show(); // LED 모두 끄기
+
+  analogWrite(VIB_MOTOR_PIN_L, 0);
+  analogWrite(VIB_MOTOR_PIN_R, 0);
+  
+  strip1.begin();
+  strip2.begin();
+  strip1.show(); 
+  strip2.show(); // LED 모두 끄기
 
   Wire.begin();
   mpu.initialize();
@@ -79,31 +107,46 @@ void setup() {
 void loop() {
   Blynk.run(); // Blynk 연결 유지 및 통신 처리
 
-  //초음파 거리 측정
-  digitalWrite(TRIG_PIN, LOW);
-  delayMicroseconds(2);
-  digitalWrite(TRIG_PIN, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(TRIG_PIN, LOW);
+  long d1 = readDistance(TRIG_PIN_L, ECHO_PIN_L);
+  long d2 = readDistance(TRIG_PIN_R, ECHO_PIN_R);
+  long d3 = readDistance(TRIG_PIN_C, ECHO_PIN_C);
 
-  float duration = pulseIn(ECHO_PIN, HIGH, 30000); 
-  float distance = 0.017 * duration; // 전역 변수 distance 업데이트
-
-  Serial.print("Distance: ");
-  Serial.print(distance);
-  Serial.println(" cm");
+  Serial.print("Sensor 1: "); Serial.print(d1); Serial.println(" cm");
+  Serial.print("Sensor 2: "); Serial.print(d2); Serial.println(" cm");
+  Serial.print("Sensor 3: "); Serial.print(d3); Serial.println(" cm");
 
   //100cm 미만이면 LED on, 진동모터 on, 부저 on
-   if (distance > 0 && distance <= 100) {
-    strip.setPixelColor(0, strip.Color(255, 0, 0));
-    analogWrite(VIB_MOTOR_PIN, 255);
+  if (d1 > 0 && d1 <= 100) {
+    strip1.setPixelColor(0, strip1.Color(255, 0, 0));
+    analogWrite(VIB_MOTOR_PIN_L, 255);
     digitalWrite(BUZZER_PIN, HIGH);
   } else {
-    strip.setPixelColor(0, 0, 0, 0);
-    analogWrite(VIB_MOTOR_PIN, 0);
+    strip1.setPixelColor(0, 0, 0, 0);
+    analogWrite(VIB_MOTOR_PIN_L, 0);
     digitalWrite(BUZZER_PIN, LOW);
   }
-  strip.show();
+
+  if (d2 > 0 && d2 <= 100) {
+    strip2.setPixelColor(0, strip2.Color(255, 0, 0));
+    analogWrite(VIB_MOTOR_PIN_R, 255);
+    digitalWrite(BUZZER_PIN, HIGH);
+  } else {
+    strip2.setPixelColor(0, 0, 0, 0);
+    analogWrite(VIB_MOTOR_PIN_R, 0);
+    digitalWrite(BUZZER_PIN, LOW);
+  }
+
+  if (d3 > 0 && d3 <= 100) {
+    strip1.setPixelColor(0, strip1.Color(255, 0, 0));
+    strip2.setPixelColor(0, strip2.Color(255, 0, 0));
+    analogWrite(VIB_MOTOR_PIN_L, 255);
+    analogWrite(VIB_MOTOR_PIN_R, 255);
+    digitalWrite(BUZZER_PIN, HIGH);
+  }
+  
+  strip1.show();
+  strip2.show();
+
 
   //IMU MPU6050
   Wire.beginTransmission(MPU_addr);
@@ -124,13 +167,13 @@ void loop() {
   Serial.print(" | GyX = "); Serial.print(GyX);
   Serial.print(" | GyY = "); Serial.print(GyY);
   Serial.print(" | GyZ = "); Serial.println(GyZ);
+
   
   // ===================== 센서 데이터 전송 로직 (V0, V1) =====================
   if (Blynk.connected()) {
       // V0: Accel Z 값 전송 (History Graph용)
       Blynk.virtualWrite(V0, AcZ); 
       // V1: Distance 값 전송
-      Blynk.virtualWrite(V1, distance); 
   }
   // ========================================================================
 
@@ -141,9 +184,10 @@ void loop() {
 
   if ((AcZ < -8000) && (AcY > -8000)) {  
     Serial.println("⚠️ 낙상 감지!");
-    strip.setPixelColor(0, strip.Color(255, 255, 0)); // 노란색 LED 경고
-    strip.show();
-    analogWrite(VIB_MOTOR_PIN, 255); // 진동 강하게
+    strip1.setPixelColor(0, strip1.Color(255, 255, 0));
+    strip2.setPixelColor(0, strip2.Color(255, 255, 0)); // 노란색 LED 경고
+    strip1.show();
+    strip2.show();
     digitalWrite(BUZZER_PIN, HIGH);
     digitalWrite(RELAY_PIN, HIGH);
 
@@ -163,7 +207,6 @@ void loop() {
     // =========================================================================
 
   } else {
-    analogWrite(VIB_MOTOR_PIN, 0);
     digitalWrite(BUZZER_PIN, LOW);
     digitalWrite(RELAY_PIN, LOW);
 
