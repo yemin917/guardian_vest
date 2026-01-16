@@ -1,6 +1,6 @@
 # Guardian Vest
 
-<img src="images/full_view_image.jpg" alt="Wheelchair Overview" width="300"/>
+<img src="images/full_wearing_image.jpg" alt="Vest Overview" width="300"/>
 
 ## Project Overview
 This project implements a safety vest using Arduino UNO R4. 
