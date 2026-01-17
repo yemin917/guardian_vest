@@ -41,6 +41,8 @@ Response - Fall
 
 
 ## Features
+<img src="images/full_image.jpg" alt="Vest Overview" width="300"/>
+
 - Real-time vehicle detection and warning for pedestrians
 - Fall detection and automatic airbag deployment
 - Multi-modal feedback: tactile, auditory, and visual
